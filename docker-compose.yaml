@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgres:13
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  liquibase:
+    image: liquibase/liquibase
+    depends_on:
+      - db
+      - app
+    volumes:
+      - ./db/changelog/db.changelog-master.yaml:/liquibase/changelog/db.changelog-master.yaml
+      - ./liquibase.docker.properties:/liquibase/liquibase.docker.properties
+      - ./entrypoint.sh:/docker-entrypoint.sh
+    env_file:
+      - .env
+    entrypoint: ["/bin/bash", "/docker-entrypoint.sh"]
+    command: --defaultsFile=/liquibase/liquibase.docker.properties update
+  
+  app:
+    build: .
+    ports:
+      - "4000:4000"
+    depends_on:
+      - db
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://${DB_USERNAME}:${DB_PASSWORD}@db:5432/${DB_NAME}
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+
+volumes:
+  pgdata:
